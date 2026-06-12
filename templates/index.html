@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Votação - Computação Distribuída</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            text-align: center; 
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5; 
+            color: #333; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 90vh;
+        }
+        .card { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
+            max-width: 450px; 
+            width: 100%; 
+            box-sizing: border-box;
+        }
+        h2 {
+            font-size: 24px;
+            margin-bottom: 25px;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        button { 
+            font-size: 18px; 
+            font-weight: bold; 
+            padding: 16px 32px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 8px; 
+            flex: 1;
+            transition: transform 0.1s, background-color 0.2s; 
+        }
+        button:active { 
+            transform: scale(0.96); 
+        }
+        .btn-py { 
+            background-color: #3572A5; 
+            color: white; 
+        }
+        .btn-py:hover { background-color: #2b5c87; }
+        .btn-js { 
+            background-color: #f1e05a; 
+            color: #222; 
+        }
+        .btn-js:hover { background-color: #dccb4b; }
+        .placar { 
+            margin-top: 30px; 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 10px; 
+            font-size: 20px; 
+            text-align: left; 
+            border: 1px solid #e9ecef;
+        }
+        .votos { 
+            float: right; 
+            font-weight: bold; 
+            color: #007bff; 
+        }
+        .qrcode-container {
+            margin-top: 35px;
+            padding-top: 25px;
+            border-top: 2px dashed #dee2e6;
+        }
+        .qrcode-img {
+            width: 200px;
+            height: 200px;
+            margin-top: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-radius: 10px;
+        }
+        .qrcode-text {
+            font-size: 15px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        /* CONFIGURAÇÃO PARA TELEMÓVEL (MOBILE) */
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+                align-items: flex-start;
+            }
+            .card { 
+                padding: 25px 20px;
+                border-radius: 12px;
+                max-width: 100%;
+            }
+            h2 {
+                font-size: 22px;
+            }
+            .button-group {
+                flex-direction: column; /* Botões ficam um em cima do outro no telemóvel */
+                gap: 12px;
+            }
+            button {
+                font-size: 20px; /* Aumenta a letra do botão para facilitar o clique */
+                padding: 18px;
+                width: 100%;
+            }
+            .placar {
+                font-size: 22px; /* Placar maior para leitura rápida */
+                padding: 18px;
+            }
+            .qrcode-img {
+                width: 180px; /* Reduz um pouco o QR Code no telemóvel para sobrar espaço */
+                height: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Qual tecnologia você prefere?</h2>
+        
+        <div class="button-group">
+            <button class="btn-py" onclick="enviarVoto('python')">Python</button>
+            <button class="btn-js" onclick="enviarVoto('javascript')">JavaScript</button>
+        </div>
+
+        <div class="placar">
+            <div>Python: <span id="votos-py" class="votos">0</span></div>
+            <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 15px 0;">
+            <div>JavaScript: <span id="votos-js" class="votos">0</span></div>
+        </div>
+        
+        <div class="qrcode-container">
+            <span class="qrcode-text">Aponte a câmera para votar!</span>
+            <br>
+            <img src="/static/qrcode.jpeg" alt="QR Code de Votação" class="qrcode-img">
+        </div>
+    </div>
+
+    <script>
+        async function enviarVoto(tecnologia) {
+            try {
+                const response = await fetch('/votar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ opcao: tecnologia })
+                });
+                
+                if (response.ok) {
+                    // Atualização automática rápida após o clique
+                    setTimeout(() => {
+                        buscarResultados();
+                    }, 100);
+                } else {
+                    const dados = await response.json();
+                    console.error("Erro no servidor: " + dados.detail);
+                }
+            } catch (err) {
+                console.error("Erro ao conectar com o servidor.");
+            }
+        }
+
+        async function buscarResultados() {
+            try {
+                const response = await fetch('/resultados');
+                const dados = await response.json();
+                document.getElementById('votos-py').innerText = dados.python ?? 0;
+                document.getElementById('votos-js').innerText = dados.javascript ?? 0;
+            } catch (err) {
+                console.error("Erro ao atualizar placar:", err);
+            }
+        }
+
+        // Carrega o painel atualizado ao abrir a página
+        buscarResultados();
+    </script>
+</body>
+</html>
