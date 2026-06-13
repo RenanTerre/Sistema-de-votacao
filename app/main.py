@@ -1,17 +1,19 @@
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from app.dto import VotoDTO
 from app.services import SistemaDistribuidoService
 
 app = FastAPI(title="Sistema de Votação Distribuída")
 
-# Ativa o mapeamento para servir a imagem do QR Code salva na pasta /static
-app.mount("/static", StaticFiles(directory="static"), name="static")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Configuração global de CORS
+# Mapeia a pasta de arquivos estáticos
+os.makedirs(os.path.join(BASE_DIR, "static"), exist_ok=True)
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,41 +26,30 @@ servico_sistema = SistemaDistribuidoService()
 
 
 @app.get("/", response_class=HTMLResponse)
-def raiz():
-    """Entrega o ficheiro index.html direto pelo servidor do FastAPI"""
-    caminho_html = os.path.join("templates", "index.html")
+async def raiz():
+    caminho_html = os.path.join(BASE_DIR, "templates", "index.html")
+    if not os.path.exists(caminho_html):
+        caminho_html = os.path.join(BASE_DIR, "index.html")
 
     if not os.path.exists(caminho_html):
-        caminho_html = "index.html"
+        raise HTTPException(status_code=404, detail="Arquivo index.html não foi encontrado.")
 
-    with open(caminho_html, "r", encoding="utf-8") as file:
-        return file.read()
+    return FileResponse(caminho_html)
 
 
 @app.post("/votar")
-def votar(voto: VotoDTO):
+async def votar(voto: VotoDTO):
     try:
-        # Envia para a fila do RabbitMQ
         servico_sistema.enviar_voto_para_fila(voto.opcao)
-        return {
-            "status": "sucesso",
-            "mensagem": f"Voto para '{voto.opcao}' enviado com sucesso!",
-        }
+        return {"status": "sucesso", "mensagem": f"Voto para '{voto.opcao}' enviado!"}
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro interno ao enviar voto para a fila: {str(e)}",
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/resultados")
-def obter_resultados():
+async def obter_resultados():
     try:
-        # Puxa o placar em tempo real do Redis
         placar = servico_sistema.obtener_placar_cache()
         return placar
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao buscar resultados no Redis: {str(e)}",
-        )
+        raise HTTPException(status_code=500, detail=str(e))
